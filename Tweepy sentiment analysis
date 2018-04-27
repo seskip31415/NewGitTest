@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Apr 21 12:22:19 2018
+
+@author: sophieskipper
+"""
+import twitter
+import tweepy 
+import json
+import csv
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+from twitter import Twitter,OAuth
+import matplotlib.pyplot as plt
+import pandas as pd
+# Define the location id for the UK
+WOEID = 23424975 
+# Define language of tweets
+LANG = "en"
+# Define type of tweets we are after
+TWEETS_TYPE = "recent"
+# Define max number of tweets per trend
+MAX_STATUSES = 1000
+
+# API config
+twitterConfig = {
+	'token' : '###',
+	'token_secret' : '###',
+	'consumer_key' : '####',
+	'consumer_secret' : '####'
+}
+consumer_key = twitterConfig['consumer_key']
+consumer_secret = twitterConfig['consumer_secret']
+access_token_secret = twitterConfig['token_secret']
+access_token = twitterConfig['token']
+
+auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+oauth = OAuth(access_token, access_token_secret, consumer_key, consumer_secret)
+auth.set_access_token(access_token, access_token_secret)
+api = tweepy.API(auth, wait_on_rate_limit = True)
+
+
+
+
+#print top ten trends
+
+def obtain_trends(number):
+     
+    trends = api.trends_place(WOEID)
+#   trends_nice = json.dumps(trends, indent = 1)
+#create set of trends
+    world_trends_set = set([trend['name'] for trend in trends[0]['trends']])
+    trends1 = []
+    for i in world_trends_set:
+        trends1.append(i)
+    world_trends_10 = trends1[:10]
+    tweets = []
+    for q in world_trends_10:
+        tweets1 = []
+        for tweet in tweepy.Cursor(api.search, q = q, count = number, lang = LANG).items():
+            if not 'RT@' in tweet.text:
+                tweets1.append(tweet.text)
+            tweets.append(tweets1)
+    keys = world_trends_10
+    values = tweets
+    
+        #dictionary with trends : tweets
+    dic = dict(zip(keys,values))
+        #data = pd.DataFrame(dic)
+    return dic
+
+def sentiment_analysis(number):
+    #set analyzer 
+    analyzer = SentimentIntensityAnalyzer()
+    #call trends with tweets pd frame
+    dic = obtain_trends(number)
+    tweet= []
+    trend = []
+    general = []
+    neutral = []
+    positive = []
+    negative = []
+    compound = []
+    for k,v in dic.items():
+        trend.append(k)
+        tweet.append(v)
+        general.append(analyzer.polarity_scores(v))
+        neutral.append(analyzer.polarity_scores(v)['neu'])
+        positive.append(analyzer.polarity_scores(v)['pos'])    
+        negative.append(analyzer.polarity_scores(v)['neg'])
+        compound.append(analyzer.polarity_scores(v)['compound'])
+#make a dictionary from lists and 
+
+    twitter_data = pd.DataFrame({'Trend':trend, 'Tweet':tweet, 'Neutral': neutral, 'Positive':positive, 'Negative':negative, 'Compound':compound})
+ #assign labels positive and negative with range of 0.3
+    twitter_data['label'] = 0
+    twitter_data.loc[twitter_data['compound'] > 0.3, 'label'] = 1
+    twitter_data.loc[twitter_data['compound'] < -0.3, 'label'] = -1    
+    twitter_data = twitter_data[['Tweet', 'Trend', 'Neutral','Positive','Negative','Compound', 'Label']]
+#count number of values
+    total_normalise_count = twitter_data['label'].value_counts(normalise = True)
+    axis = plt.axes()
+    labels = [-1,0,1]
+    position = np.arange(len(labels))
+    width = 1.0
+    axis.set_xticks(position + (width / 2))
+    axis.set_xtickslabels(position)
+    plt.bar(position, total_normalise_count, width)
+    plt.show()
+    
+    twitter_data.to_csv('twitter_Sentiment.csv')
+number = 5
+obtain_trends(number)  
+sentiment_analysis(number)
+
+
+#print(vs_compound = [],vs_pos = [],vs_neu = [],vs_neg = []) 
+# Open/Create a file to append data
+#csvFile = open('ua.csv', 'a')
+    #Use csv Writer
+#svWriter = csv.writer(csvFile)
+#csvWriter.writerow([tweet.text.encode('utf-8')])
+#csv.read(csvWriter)
+#ef get_tweets():
+ #   tweets = []
+  #  for q in in obtain_trends: 
+   #     tweets = obtain_trends.GetSearch(term= q, count = 1000)
+    #return tweets
+# Init sentiment analysis object
+
+
+# Compound sentiment extraction use example
+# exampleCompoundSentiment = analyzer.polarity_scores("I love cats and dogs")["compound"]
+# print(exampleCompoundSentiment)
+
+def print_sentiment_scores(sentence):
+    sentiment = analyser.polarity_scores(sentence)
+    print(sentiment)
+
+
+        
+        
+        
